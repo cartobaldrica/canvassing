@@ -66,7 +66,6 @@
             top:10px;
             left:10px;
             width:300px;
-            /*height:calc(100% - 40px);*/
             background:rgba(255,255,255,0.7);
             z-index: 1000;
             border-radius:20px;
@@ -83,23 +82,28 @@
             line-height:24px;
         }
         button{
-            position:relative;
-            margin-top:5px;
-            margin-bottom:5px;
             z-index:10000;
-            width:80px;
             height:35px;
             font-family: 'Lato', sans-serif;
             font-size:20px;
             background:rgba(255,255,255,0.7);
             border: 2px black solid;
-            display:none;
         }
         button:hover{
             background:lightgray;
             cursor: pointer;
         }
-        button#reset{
+        #reset{
+            position:relative;
+            margin-top:5px;
+            margin-bottom:5px;
+        }
+        #draw{
+            position:absolute;
+            z-index:1000;
+            left:calc(50% + 150px);
+            top:10px;
+            margin:3px 3px 0;
         }
         div#scroll{
             height:300px;
@@ -112,17 +116,12 @@
             overflow-y:scroll; 
         }
 
-        .scrollable-content {
-            
-        }
-
-        div#findbox{
-            position:absolute !important;
-            display:block;
-            top:10px;
-            left:calc(50% - 136px);
-            z-index:1000;
+        #findbox{
             background:rgba(255,255,255,0);
+            position:absolute !important;
+            z-index:1000;
+            left:calc(50% - 136px);
+            top:10px;
         }
     </style>
 </head>
@@ -139,6 +138,7 @@
         <button id="reset"  style="display:inline;" onclick="reset()">RESET</button>
     </div>
     <div id="findbox"></div>
+    <button id="draw">Draw Area</button>
     <div id="map" style="width: 100%; height: 100%;"></div>
 <script>
     L.TopoJSON = L.GeoJSON.extend({  
@@ -154,11 +154,50 @@
     		}
   		}  
     });
-    
-    /*var container = document.getElementById('scroll');
-		Ps.initialize(container);*/
 
-    var map = L.map('map', {center: [43.8214014,-91.2407344], zoomControl: false, zoom: 13});
+    var drawListener = false,
+        polySegments = [],
+        polygon,
+        preview;
+
+    $('#draw').on("click",function(){
+        drawListener = true;
+    })
+
+    var map = L.map('map', {center: [43.8214014,-91.2407344], doubleClickZoom: false, zoomControl:false, zoom: 13});
+
+    map.on('mousedown', function(e) {
+        var latlng = [e.latlng.lat,e.latlng.lng];
+        if (drawListener == true){
+            //remove preview line and add segments to polygon
+            if (preview){
+                preview.remove(map);
+            }
+            polySegments.push(latlng);
+            if (polygon){
+                polygon.addLatLng(e.latlng)
+            }
+            else{
+                polygon = L.polygon(polySegments, {color:'#000000'}).addTo(map);
+            }
+        }      
+    });   
+    map.on('dblclick', function(e){
+        drawListener = false;
+    });
+    map.on('mousemove', function(e) {
+        var latlng = [e.latlng.lat,e.latlng.lng];
+        if (drawListener == true){
+            var current = polySegments.length - 1;
+            if (preview){
+                preview.remove(map);
+            }
+            if (current >= 0){
+                var previewPolySegments = [polySegments[current],latlng];
+                preview = L.polyline(previewPolySegments, {color:"#000000", className:"templine"}).addTo(map);
+            }
+        }
+    });  
 
     var Esri_WorldTerrain = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
 		attribution: 'Tiles &copy; Esri &mdash; Source: USGS, Esri, TANA, DeLorme, and NPS',
@@ -183,22 +222,6 @@
     }).addTo(map);
 
     document.getElementsByClassName("leaflet-control-attribution")[0].style.visibility = "hidden";
-
-    /*var info = L.control();
-
-	info.onAdd = function (map) {
-    	this._div = L.DomUtil.create('div', 'info'); // create a div with a class "info"
-    	this.update();
-    	return this._div;
-    };
-    
-    info.update = function (props) {
-        this._div.innerHTML = (props ?
-            '<h2 style="margin:0;">' + dataTable[props.ID-1].ID +'<br/>' + (props.ID) +'</h2>'
-            : '<b style="font-size:24px;">Hover over Map</b>')
-    };
-
-	info.addTo(map);*/
 
     const cover = new L.TopoJSON(null, {
                 interactive:false
