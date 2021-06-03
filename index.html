@@ -184,6 +184,7 @@
     });   
     map.on('dblclick', function(e){
         drawListener = false;
+        rectSelect(polygon);
     });
     map.on('mousemove', function(e) {
         var latlng = [e.latlng.lat,e.latlng.lng];
@@ -246,12 +247,17 @@
 
     var value;
     var assessedValue;
-	var dataTable = {};
+	var dataTable = [];
+    var centroids = [];
+
+
+    //create object with lat/long coordinates stored, as well as OBJECTid
 
 	function doStuff(data) {
 		for (var i = 0;i < 5000;i++){
 			dataTable[i] = data[i];
 		}
+        console.log(dataTable[4])
 	}
 
 	function parseData(url, callBack) {
@@ -271,6 +277,17 @@
         filter:function(feature){
             return feature.properties.filter == 1 ? false:
                 true;
+        },
+        onEachFeature:function(feature, layer){
+            var bounds = layer.getBounds(),
+                center = bounds.getCenter();
+
+            var centroid = {
+                center: center,
+                id: feature.properties.ID
+            }
+
+            centroids.push(centroid);
         }
     });
     var selection;
@@ -279,14 +296,14 @@
   		.done(addRentalData);
 
 	function addRentalData(topoData) {  
-        rentals.addData(topoData);s
+        rentals.addData(topoData);
         rentals.addTo(map);
         rentals.eachLayer(handleRentalLayer);
 	}
 
 	function handleRentalLayer(layer){
         if (selection){
-            if (selection == layer.feature.properties.landlord){
+            if (selection == layer.feature.properties.landlord || $.inArray(layer.feature.properties.ID, selection) > -1){
                 layer.setStyle({
                     opacity: 0.5,
                     weight:0.5,
@@ -323,7 +340,7 @@
 
     function highlight(){
         if (selection){
-            if (selection == this.feature.properties.landlord){
+            if (selection == this.feature.properties.landlord || $.inArray(this.feature.properties.ID, selection) > -1){
                 rentals.bindTooltip('<h2 style="margin:0;">' + dataTable[this.feature.properties.ID-1].PropertyAddress + '</h2><p>' + dataTable[this.feature.properties.ID-1].Landlord + '<br/>Properties: ' + dataTable[this.feature.properties.ID-1].rentals_props + '</p>', {className: 'label-tooltip', direction:'top'});
                 this.setStyle({
                     fillOpacity: 0.8
@@ -359,6 +376,56 @@
 
     var propCSV = [];
 
+    function isMarkerInsidePolygon(marker, poly) {
+        var polyPoints = poly.getLatLngs()[0];       
+        var x = marker.lat, y = marker.lng;
+
+        var inside = false;
+        for (var i = 0, j = polyPoints.length - 1; i < polyPoints.length; j = i++) {
+            var xi = polyPoints[i].lat, yi = polyPoints[i].lng;
+            var xj = polyPoints[j].lat, yj = polyPoints[j].lng;
+
+            var intersect = ((yi > y) != (yj > y))
+                && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+
+        return inside;
+    };
+
+    function rectSelect(poly){
+        var selectedList = [],
+            propList = [],
+            displayList = [];
+        
+        centroids.forEach(function(centroid){
+            var within = isMarkerInsidePolygon(centroid.center, poly);
+            if (within == true){
+                selectedList.push(centroid.id);
+            }
+        });
+
+        selectedList.forEach(function(selection){
+            dataTable.forEach(function(item){
+                if (item){
+                    if (item.ID == selection){
+                        propList.push(item);
+                        displayList.push(item.PropertyAddress + "<br/>");
+                    }
+                }
+            })
+        });
+
+        selection = selectedList;
+        rentals.eachLayer(handleRentalLayer);
+
+        polygon.remove(map);
+
+        $('#properties').html(displayList);
+        $('#number').html("Total Rentals: " + propList.length);
+        $('#panel').css("display","block");
+    }
+
     function select(prop){
         var propList = [];
         var visiblePropList = [];
@@ -393,8 +460,6 @@
             csvContent += row + "\r\n";
         });
 
-        console.log(csvContent);
-
         var hiddenElement = document.createElement('a');
             hiddenElement.href = 'data:text/csv;charset=utf-8,' + encodeURI(csvFile);
             hiddenElement.target = '_blank';
@@ -405,7 +470,12 @@
 
     function reset(){
         $('#panel').css("display","none");
-
+        
+        if (polygon){
+            polygon.remove(map);
+            polygon = null;
+            polySegments = [];
+        }
 
         selection = null;
         rentals.eachLayer(handleRentalLayer);
