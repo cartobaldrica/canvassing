@@ -161,6 +161,7 @@
         preview;
 
     $('#draw').on("click",function(){
+        info.addTo(map);
         drawListener = true;
     })
 
@@ -183,8 +184,11 @@
         }      
     });   
     map.on('dblclick', function(e){
-        drawListener = false;
-        rectSelect(polygon);
+        if (drawListener == true){
+            drawListener = false;
+            info.remove(map)
+            rectSelect(polygon);
+        }
     });
     map.on('mousemove', function(e) {
         var latlng = [e.latlng.lat,e.latlng.lng];
@@ -394,6 +398,7 @@
     };
 
     function rectSelect(poly){
+
         var selectedList = [],
             propList = [],
             displayList = [];
@@ -427,6 +432,7 @@
     }
 
     function select(prop){
+        info.remove(map);
         var propList = [];
         var visiblePropList = [];
         value = 0;
@@ -452,23 +458,9 @@
         $('#panel').css("display","block");
     }
 
-    function exp(){
-        let csvContent = "data:text/csv;charset=utf-8,";
-
-        propCSV.forEach(function(rowArray) {
-            let row = rowArray.join(",");
-            csvContent += row + "\r\n";
-        });
-
-        var hiddenElement = document.createElement('a');
-            hiddenElement.href = 'data:text/csv;charset=utf-8,' + encodeURI(csvFile);
-            hiddenElement.target = '_blank';
-            hiddenElement.download = 'list.csv';
-            hiddenElement.click();
-
-    }
-
     function reset(){
+        info.remove(map);
+        
         $('#panel').css("display","none");
         
         if (polygon){
@@ -480,6 +472,14 @@
         selection = null;
         rentals.eachLayer(handleRentalLayer);
     }
+
+    var info = L.control({ position: 'topleft' });
+
+    info.onAdd = function (map) {
+        this._div = L.DomUtil.create('div', 'info'); // create a div with a class "info"
+        this._div.innerHTML = '<h2>Click to add points to your area <br/>Double-click when finished</h2>';
+        return this._div;
+    };
 
     var searchControl =  new L.Control.Search({
 		container: 'findbox',
