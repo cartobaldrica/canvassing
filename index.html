@@ -432,6 +432,7 @@
     }
 
     function select(prop){
+        
         info.remove(map);
         var propList = [];
         var visiblePropList = [];
@@ -462,6 +463,7 @@
         info.remove(map);
         
         $('#panel').css("display","none");
+        $('#landlord, #landlordLabel, #value, #number, #properties').html("");
         
         if (polygon){
             polygon.remove(map);
